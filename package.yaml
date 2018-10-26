@@ -10,14 +10,14 @@ category:            Web
 extra-source-files:
 - README.md
 
-ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints
+ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns
 
 dependencies:
   - base >= 4.7 && < 5
   - first-class-families
 
 executable:
-    source-dirs:      src
+    source-dirs:      app
     main:             Main.hs
     dependencies:
       - megarecord
