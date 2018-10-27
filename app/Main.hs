@@ -1,29 +1,16 @@
+{-# LANGUAGE OverloadedLabels #-}
 module Main where
 
-import Data.Proxy (Proxy(..))
-import Data.Kind (Type)
-import Megarecord (Row, RowAppend, RowCons, Empty, Record)
+import Megarecord (RowAppend, Empty, {-Record,-} insert, get, rnil)
 
 type TestRow1 = RowAppend "foo" String Empty
 type TestRow2 = RowAppend "bar" String TestRow1
 type TestRow3 = RowAppend "fuux" Double TestRow2
 type TestRow4 = RowAppend "foo" Int TestRow3
 
-get :: forall s ty t r. RowCons s ty t r => Proxy r -> Proxy s -> ty
-get _ _ = undefined
-
-append :: forall s ty r r'. RowCons s ty r r' => Proxy r -> Proxy s -> ty -> Record r'
-append _ _ _ = undefined
-
--- functions with _inf test type inference of the result
-
-test_rec :: String
-test_rec = get (Proxy @TestRow4) (Proxy @"foo")
---test_rec_inf = get (Record :: Record TestRow4) (Proxy :: Proxy "foo")
-
-test_app :: Record TestRow3
-test_app = append (Proxy @TestRow2) (Proxy @"fuux") (5 :: Double)
---test_app_inf = append (Record :: Record TestRow2) (Proxy :: Proxy "fuux") (5 :: Double)
-
 main :: IO ()
-main = putStrLn "hello world"
+main = let emptyRec = rnil
+           rec1 = insert #foo "Hello" emptyRec
+           rec2 = insert #bar "World" rec1
+           s = get #foo rec2 ++ " " ++ get #bar rec2
+        in putStrLn s

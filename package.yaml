@@ -14,7 +14,6 @@ ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-pattern
 
 dependencies:
   - base >= 4.7 && < 5
-  - first-class-families
 
 executable:
     source-dirs:      app
@@ -26,19 +25,23 @@ library:
   source-dirs: src
   exposed-modules:
     - Megarecord
+  dependencies:
+    - ghc-prim
+    - first-class-families
 
 default-extensions:
     - BangPatterns
     - DataKinds
-    - EmptyDataDecls
     - FlexibleInstances
     - FunctionalDependencies
     - KindSignatures
     - MultiParamTypeClasses
     - PolyKinds
+    - RankNTypes
+    - RoleAnnotations
     - ScopedTypeVariables
     - TypeApplications
     - TypeFamilies
-    - TypeOperators
     - TypeInType
+    - TypeOperators
     - UndecidableInstances

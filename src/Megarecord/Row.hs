@@ -1,11 +1,12 @@
 module Megarecord.Row (
-        Row, RowCons,
+        Row, Empty,
+        RowCons, RowLacks,
         RowAppend, RowPrepend,
         RowDelete
     ) where
 
 import GHC.TypeLits (Symbol)
-import Megarecord.Internal (Map, RemoveWith, InsertWith)
+import Megarecord.Internal (Map, Empty, RemoveWith, InsertWith, Lookup)
 import Fcf (Eval, Exp, type (++))
 
 type Row k = Map Symbol [k]
@@ -13,8 +14,11 @@ type Row k = Map Symbol [k]
 
 class RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
         | label row -> ty tail, label ty tail -> row
-
 instance (RowDelete s r ~ tail, RowPrepend s ty tail ~ r) => RowCons s ty tail r
+
+class RowLacks (label :: Symbol) (row :: Row k)
+instance (Lookup label row ~ 'Nothing) => RowLacks label row
+
 
 
 type RowDelete (s :: Symbol) (r :: Row k1) = Eval (RemoveWith RowDeleteInternal s r)
