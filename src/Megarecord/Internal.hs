@@ -2,7 +2,7 @@
 module Megarecord.Internal (
         Compare, Map(..), Empty,
         Lookup, InsertWith,
-        RemoveWith, Traverse, Length,
+        RemoveWith, Traverse,
         Contains, Insert,
     ) where
 
@@ -75,10 +75,6 @@ type family Traverse (f :: k1 -> k2 -> Exp k3) (con :: k3 -> k3 -> Exp k3) (m ::
     Traverse _ _ 'Nil id = id
     Traverse f _ ('Cons k v 'Nil) _ = Eval (f k v)
     Traverse f con ('Cons k v m) id = Eval (con (Eval (f k v)) (Traverse f con m id))
-
-class (KnownNat n) => Length (r :: Map k1 k2) (n :: Nat) | r -> n
-instance Length 'Nil 0
-instance (Length r' n', m ~ (n' + 1), KnownNat m) => Length ('Cons k v r') m
 
 -- Combinators
 type Insert (k :: k1) (v :: k2) (m :: Map k1 k2) = Eval (InsertWith (Flip ConstFn) k v m)

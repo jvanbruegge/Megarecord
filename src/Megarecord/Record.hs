@@ -15,7 +15,7 @@ import GHC.OverloadedLabels (IsLabel(..))
 import GHC.Prim
 
 import Megarecord.Row (Row, Empty, RowCons, RowLacks)
-import Megarecord.Row.Internal (RowIndex, RowInsertIndex)
+import Megarecord.Row.Internal (RowIndex)
 
 data Record (r :: Row k) = Record (SmallArray# Any)
 type role Record representational
@@ -38,7 +38,7 @@ rnil = runST' $ ST $ \s# ->
 insert :: forall i l ty r1 r2.
     RowLacks l r1 =>
     RowCons l ty r1 r2 =>
-    RowInsertIndex l r1 i =>
+    RowIndex l r2 i =>
     FldProxy l -> ty -> Record r1 -> Record r2
 insert _ x (Record a#) = runST' $ ST $ \s0# ->
         case newSmallArray# newSize# (error "No value") s0# of
