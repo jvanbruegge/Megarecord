@@ -35,7 +35,7 @@ rnil = runST' $ ST $ \s# ->
                 (# s''#, a# #) -> (# s''#, Record a# #)
 {-# INLINE rnil #-}
 
-insert :: forall l ty r1 r2 i.
+insert :: forall i l ty r1 r2.
     RowLacks l r1 =>
     RowCons l ty r1 r2 =>
     RowInsertIndex l r1 i =>
