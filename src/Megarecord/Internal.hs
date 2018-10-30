@@ -2,12 +2,12 @@
 module Megarecord.Internal (
         Compare, Map(..), Empty,
         Lookup, InsertWith,
-        RemoveWith, Traverse,
+        RemoveWith, Traverse, Transform,
         Contains, Insert,
     ) where
 
 import Data.Kind (Type)
-import GHC.TypeLits (Symbol, Nat, KnownNat, CmpSymbol, CmpNat, type (+))
+import GHC.TypeLits (Symbol, Nat, CmpSymbol, CmpNat)
 import Fcf (Eval, Exp, Flip, ConstFn, FromMaybe, type (=<<))
 import qualified Fcf as F
 
@@ -35,6 +35,10 @@ type instance Eval (LookupInternal 'LT _ _) = 'Nothing
 type instance Eval (LookupInternal 'EQ k ('Cons _ v _)) = 'Just v
 type instance Eval (LookupInternal 'GT k ('Cons _ _ m)) = Lookup k m
 
+
+data Transform :: (k1 -> k2 -> Exp k2) -> Map k1 k2 -> Exp (Map k1 k2)
+type instance Eval (Transform f ('Cons k v m)) = 'Cons k (Eval (f k v)) (Eval (Transform f m))
+type instance Eval (Transform _ 'Nil) = 'Nil
 
 
 data InsertWith :: (Maybe k2 -> k2 -> Exp k2) -> k1 -> k2 -> Map k1 k2 -> Exp (Map k1 k2)

@@ -3,19 +3,21 @@
 module Megarecord.Record (
         Record, FldProxy(..),
         insert, get, modify, set, delete,
+        merge,
         rnil
     ) where
 
+import Data.Proxy (Proxy(..))
 import Data.Typeable (Typeable)
 import GHC.ST (ST(..), runST)
 import GHC.Base (Any, Int(..))
 import GHC.TypeLits (natVal', Symbol)
-import GHC.Types (RuntimeRep(TupleRep))
+import GHC.Types (RuntimeRep(TupleRep, LiftedRep))
 import GHC.OverloadedLabels (IsLabel(..))
 import GHC.Prim
 
-import Megarecord.Row (Row, Empty, RowCons, RowLacks)
-import Megarecord.Row.Internal (RowIndex)
+import Megarecord.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
+import Megarecord.Row.Internal (RowIndex, RowIndices, RowLength, natVals)
 
 data Record (r :: Row k) = Record (SmallArray# Any)
 type role Record representational
@@ -98,6 +100,42 @@ delete _ (Record arr#) = runST' $ ST $ \s0# ->
                 0# -> n#
                 _ -> n# -# 1#
 
+merge :: forall r1 r2 r3 r4 idx1 idx2 n.
+    RowUnion r1 r2 r3 =>
+    RowNub r3 r4 =>
+    RowIndices r1 r4 idx1 =>
+    RowIndices r2 r4 idx2 =>
+    RowLength r4 n =>
+    Record r1 -> Record r2 -> Record r4
+merge (Record a#) (Record b#) = runST' $ ST $ \s0# ->
+        case newSmallArray# size# (error "No value") s0# of
+            (# s1#, arr# #) -> case fold'# (applyMapping a# arr#) (# s1#, map1 #) indices1 of
+                (# s2#, _ #) -> case fold'# (applyMapping b# arr#) (# s2#, map2 #) indices2 of
+                    (# s3#, _ #) -> freeze arr# s3#
+    where !(I# size#) = fromIntegral $ natVal' (proxy# :: Proxy# n)
+          indices1 = indexList a#
+          indices2 = fmap fst map2
+          map1 = zip indices1 newIndices1
+          map2 = filteredMapping map1 $ zip (indexList b#) newIndices2
+          newIndices1 = natVals $ Proxy @idx1
+          newIndices2 = natVals $ Proxy @idx2
+
+applyMapping :: SmallArray# Any -> SmallMutableArray# s Any -> Int -> (# State# s, [(Int, Int)] #) -> (# State# s, [(Int, Int)] #)
+applyMapping _ _ _ (# _, [] #) = error "Should not happen"
+applyMapping a# target# _ (# s#, (I# x#, I# y#):xs #) = (# writeSmallArray# target# y# val s#, xs #)
+    where (# val #) = indexSmallArray# a# x#
+
+filteredMapping :: [(Int, Int)] -> [(Int, Int)] -> [(Int, Int)]
+filteredMapping [] x = x
+filteredMapping _ [] = []
+filteredMapping a@((_, y):xs) b@(c@(_, y'):ys)
+        | y < y' = filteredMapping xs b
+        | y == y' = filteredMapping xs ys
+        | otherwise = c : filteredMapping a ys
+
+indexList :: SmallArray# Any -> [Int]
+indexList a# = [0 .. I# (sizeofSmallArray# a# -# 1#)]
+
 copyAndInsertNew :: forall r ty. Int# -> ty -> (Int# -> Int#) -> [Int] -> SmallArray# Any -> Int# -> Record r
 copyAndInsertNew i# x f indices arr# size# = runST' $ ST $ \s0# ->
         case createAndCopy size# s0# arr# f indices of
@@ -121,4 +159,6 @@ fold# :: forall a (b# :: TYPE ('TupleRep '[])). (a -> b# -> b#) -> b# -> [a] -> 
 fold# _ !s# [] = s#
 fold# f !s# (x:xs) = fold# f (f x s#) xs
 
-
+fold'# :: forall a (b# :: TYPE ('TupleRep '[ 'TupleRep '[], 'LiftedRep])). (a -> b# -> b#) -> b# -> [a] -> b#
+fold'# _ !s# [] = s#
+fold'# f !s# (x:xs) = fold'# f (f x s#) xs

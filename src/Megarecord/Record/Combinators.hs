@@ -2,7 +2,7 @@ module Megarecord.Record.Combinators where
 
 import Megarecord.Row (RowCons, RowLacks)
 import Megarecord.Row.Internal (RowIndex)
-import Megarecord.Record (Record, FldProxy, insert)
+import Megarecord.Record (Record, FldProxy, insert, get)
 
 data label := value = FldProxy label := !value
 infix 7 :=
@@ -14,3 +14,10 @@ infix 7 :=
     (l := v) -> Record r1 -> Record r2
 (&) (lp := v) = insert lp v
 infixr 5 &
+
+(@.) :: forall l ty r r' i.
+    RowCons l ty r' r =>
+    RowIndex l r i =>
+    Record r -> FldProxy l -> ty
+(@.) r p = get p r
+infix 8 @.
