@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs #-}
 module Megarecord.Internal (
-        Compare, Map(..), Empty,
+        Compare, Map(..), Empty, Row,
         Lookup, InsertWith,
         RemoveWith, Traverse, Transform,
         Contains, Insert,
@@ -21,6 +21,8 @@ type instance Compare (a :: Nat) (b :: Nat) = CmpNat a b
 -- The core type level Map datatype
 data Map (k :: Type) (v :: Type) = Cons k v (Map k v) | Nil
 type Empty = 'Nil
+
+type Row k = Map Symbol [k]
 
 -- Core operations on the type
 type Lookup (k :: k1) (m :: Map k1 k2) = Eval (Lookup_ k m)

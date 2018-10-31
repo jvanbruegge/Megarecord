@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Megarecord.Row (
         Row, Empty,
         RowCons, RowLacks, RowNub, RowUnion,
@@ -5,16 +6,14 @@ module Megarecord.Row (
         RowDelete
     ) where
 
-import GHC.TypeLits (Symbol, CmpSymbol, Nat, type (+), type (-))
-import Megarecord.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform)
+import GHC.TypeLits (Symbol, CmpSymbol, KnownNat, Nat, type (+), type (-))
+import Megarecord.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform, Row)
+import Megarecord.Row.Internal (RowIndex, RowLength, RowIndices, KnownNats)
 import Fcf (Eval, Exp, type (++))
 
-type Row k = Map Symbol [k]
-
-
-class RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
+class (KnownNat (RowIndex label row)) => RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
         | label row -> ty tail, label ty tail -> row
-instance (RowDelete s r ~ tail, RowPrepend s ty tail ~ r) => RowCons s ty tail r
+instance (RowDelete s r ~ tail, RowPrepend s ty tail ~ r, KnownNat (RowIndex s r)) => RowCons s ty tail r
 
 class RowLacks (label :: Symbol) (row :: Row k)
 instance (Lookup label row ~ 'Nothing) => RowLacks label row
@@ -22,12 +21,19 @@ instance (Lookup label row ~ 'Nothing) => RowLacks label row
 class RowNub (original :: Row k) (nubbed :: Row k) | original -> nubbed
 instance (RowNub_ original ~ nubbed) => RowNub original nubbed
 
-class RowUnion (left :: Row k1) (right :: Row k1) (union :: Row k1)
+class (
+        KnownNat (RowLength union),
+        KnownNats (RowIndices left union),
+        KnownNats (RowIndices right union)
+    ) => RowUnion (left :: Row k1) (right :: Row k1) (union :: Row k1)
         | left right -> union, union left -> right, right union -> left
 instance (
         Union left right ~ union,
         Extract 'RightSide left union ~ right,
-        Extract 'LeftSide right union ~ left
+        Extract 'LeftSide right union ~ left,
+        KnownNat (RowLength union),
+        KnownNats (RowIndices left union),
+        KnownNats (RowIndices right union)
     ) => RowUnion left right union
 
 -- Implementations

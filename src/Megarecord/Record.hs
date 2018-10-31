@@ -33,92 +33,83 @@ runST' !s = runST s
 rnil :: Record Empty
 rnil = runST' $ ST $ \s# ->
         case newSmallArray# 0# (error "No value") s# of
-            (# s'#, arr# #) -> case unsafeFreezeSmallArray# arr# s'# of
-                (# s''#, a# #) -> (# s''#, Record a# #)
+            (# s'#, arr# #) -> freeze arr# s'#
 {-# INLINE rnil #-}
 
 idInt# :: Int# -> Int#
 idInt# x# = x#
 
-insert :: forall i l ty r1 r2.
+insert :: forall l ty r1 r2.
     RowLacks l r1 =>
     RowCons l ty r1 r2 =>
-    RowIndex l r2 i =>
     FldProxy l -> ty -> Record r1 -> Record r2
 insert _ x (Record a#) = copyAndInsertNew @r2 i# x f indices a# newSize#
     where newSize# = oldSize# +# 1#
           !oldSize# = sizeofSmallArray# a#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# i)
+          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r2))
           indices = [0 .. I# (oldSize# -# 1#)]
           f n# = case n# <# i# of
                 0# -> n# +# 1#
                 _ -> n#
 {-# INLINE insert #-}
 
-modify :: forall l a b r1 r2 r i.
+modify :: forall l a b r1 r2 r.
     RowCons l a r r1 =>
     RowCons l b r r2 =>
-    RowIndex l r1 i =>
     FldProxy l -> (a -> b) -> Record r1 -> Record r2
 modify _ f (Record a#) = copyAndInsertNew @r2 i# val idInt# indices a# size#
-    where !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# i)
+    where !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r1))
           !size# = sizeofSmallArray# a#
           indices = filter (/= I# i#) [0 .. I# (size# -# 1#)]
           (# oldVal #) = indexSmallArray# a# i#
           val = f (unsafeCoerce# oldVal)
 {-# INLINE modify #-}
 
-set :: forall l a b r1 r2 r i.
+set :: forall l a b r1 r2 r.
     RowCons l a r r1 =>
     RowCons l b r r2 =>
-    RowIndex l r1 i =>
     FldProxy l -> b -> Record r1 -> Record r2
 set p b = modify p (const b)
 {-# INLINE set #-}
 
-get :: forall l ty r1 r2 i.
+get :: forall l ty r1 r2.
     RowCons l ty r1 r2 =>
-    RowIndex l r2 i =>
     FldProxy l -> Record r2 -> ty
 get _ (Record arr#) = unsafeCoerce# val
     where (# val #) = indexSmallArray# arr# i#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# i)
+          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r2))
 {-# INLINE get #-}
 
-delete :: forall l ty r1 r2 i.
+delete :: forall l ty r1 r2.
     RowLacks l r2 =>
     RowCons l ty r2 r1 =>
-    RowIndex l r1 i =>
     FldProxy l -> Record r1 -> Record r2
 delete _ (Record arr#) = runST' $ ST $ \s0# ->
         case createAndCopy size# s0# arr# f indices of
             (# s1#, a# #) -> freeze a# s1#
     where size# = sizeofSmallArray# arr# -# 1#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# i)
+          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r1))
           indices = filter (/= I# i#) [0 .. I# size#]
           f n# = case n# ># i# of
                 0# -> n#
                 _ -> n# -# 1#
 
-merge :: forall r1 r2 r3 r4 idx1 idx2 n.
+merge :: forall r1 r2 r3 r4.
     RowUnion r1 r2 r3 =>
     RowNub r3 r4 =>
-    RowIndices r1 r4 idx1 =>
-    RowIndices r2 r4 idx2 =>
-    RowLength r4 n =>
     Record r1 -> Record r2 -> Record r4
 merge (Record a#) (Record b#) = runST' $ ST $ \s0# ->
         case newSmallArray# size# (error "No value") s0# of
             (# s1#, arr# #) -> case fold'# (applyMapping a# arr#) (# s1#, map1 #) indices1 of
                 (# s2#, _ #) -> case fold'# (applyMapping b# arr#) (# s2#, map2 #) indices2 of
                     (# s3#, _ #) -> freeze arr# s3#
-    where !(I# size#) = fromIntegral $ natVal' (proxy# :: Proxy# n)
+    where !(I# size#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowLength r3))
           indices1 = indexList a#
           indices2 = fmap fst map2
           map1 = zip indices1 newIndices1
           map2 = filteredMapping map1 $ zip (indexList b#) newIndices2
-          newIndices1 = natVals $ Proxy @idx1
-          newIndices2 = natVals $ Proxy @idx2
+          newIndices1 = natVals $ Proxy @(RowIndices r1 r3)
+          newIndices2 = natVals $ Proxy @(RowIndices r2 r3)
 
 applyMapping :: SmallArray# Any -> SmallMutableArray# s Any -> Int -> (# State# s, [(Int, Int)] #) -> (# State# s, [(Int, Int)] #)
 applyMapping _ _ _ (# _, [] #) = error "Should not happen"
