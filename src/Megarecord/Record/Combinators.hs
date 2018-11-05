@@ -1,6 +1,7 @@
 module Megarecord.Record.Combinators where
 
-import Megarecord.Row (RowCons, RowLacks)
+import Data.Kind (Type)
+import Megarecord.Row (Row, RowCons, RowLacks, RowAppend)
 import Megarecord.Record (Record, FldProxy, insert, get)
 
 data label := value = FldProxy label := !value
@@ -18,3 +19,6 @@ infixr 5 &
     Record r -> FldProxy l -> ty
 (@.) r p = get p r
 infix 8 @.
+
+type family (&) (def :: Type) (r :: Row Type) :: Row Type where
+    (&) (s := ty) r = RowAppend s ty r
