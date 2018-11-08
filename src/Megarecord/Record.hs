@@ -7,17 +7,23 @@ module Megarecord.Record (
         rnil
     ) where
 
+import Data.Kind (Type)
+import Data.Text (pack)
 import Data.Proxy (Proxy(..))
+import Data.Aeson (FromJSON(..), ToJSON(..), Object, object, withObject, (.:))
+import Data.Aeson.Types (Parser)
 import Data.Typeable (Typeable)
 import GHC.ST (ST(..), runST)
 import GHC.Base (Any, Int(..))
-import GHC.TypeLits (natVal', Symbol)
+import GHC.TypeLits (natVal', Symbol, KnownSymbol, symbolVal)
 import GHC.Types (RuntimeRep(TupleRep, LiftedRep))
 import GHC.OverloadedLabels (IsLabel(..))
 import GHC.Prim
 
+
+import Megarecord.Internal (Map(..))
 import Megarecord.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
-import Megarecord.Row.Internal (RowIndex, RowIndices, RowLength, natVals)
+import Megarecord.Row.Internal (RowIndex, RowIndices, RowLength, natVals, KnownLabels, getLabels, ValuesToJSON, toValues)
 
 data Record (r :: Row k) = Record (SmallArray# Any)
 type role Record representational
@@ -26,6 +32,29 @@ data FldProxy (a :: Symbol) = FldProxy deriving (Show, Typeable)
 
 instance (l ~ l') => IsLabel l (FldProxy l') where
     fromLabel = FldProxy
+
+instance (KnownLabels r, ValuesToJSON r) => ToJSON (Record r) where
+    toJSON (Record a#) = object $ zipWith (,) (fmap pack (getLabels p)) (toValues p 0 a#)
+        where p = Proxy @r
+
+instance (KnownLabels r, ValuesFromJSON r) => FromJSON (Record r) where
+    parseJSON = withObject "Record" $ \v -> fromValues (Proxy @r) v
+
+class ValuesFromJSON (r :: Row Type) where
+    fromValues :: Proxy r -> Object -> Parser (Record r)
+instance ValuesFromJSON 'Nil where
+    fromValues _ _ = pure rnil
+instance (
+        KnownSymbol s,
+        FromJSON ty,
+        ValuesFromJSON r',
+        RowCons s ty r' ('Cons s '[ty] r'),
+        RowLacks s r'
+    ) => ValuesFromJSON ('Cons s '[ty] r') where
+    fromValues _ o = do
+            x <- (o .: pack (symbolVal (Proxy @s)) :: Parser ty)
+            rec <- fromValues (Proxy @r') o
+            pure $ insert (FldProxy @s) x rec
 
 runST' :: (forall s. ST s a) -> a
 runST' !s = runST s

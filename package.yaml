@@ -20,6 +20,8 @@ executable:
     main:             Main.hs
     dependencies:
       - megarecord
+      - servant-server
+      - warp
 
 library:
   source-dirs: src
@@ -28,6 +30,8 @@ library:
   dependencies:
     - ghc-prim
     - first-class-families
+    - aeson
+    - text
 
 default-extensions:
     - BangPatterns
