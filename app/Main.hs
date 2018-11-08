@@ -1,21 +1,23 @@
-{-# LANGUAGE OverloadedLabels, FlexibleContexts, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Main where
 
-import Servant
 import Data.Aeson (FromJSON, ToJSON)
 import Network.Wai.Handler.Warp (run)
+import Servant
 
-import Megarecord ((&), type (&), (:=) ((:=)), rnil, Record, RowDelete, Empty, insert)
+import Megarecord (type (&), type (:=), Record, RowDelete, Empty, insert)
 
 newtype Id = Id Int deriving (Show, FromJSON, ToJSON)
 
 type User = Record ("id" := Id & "name" := String & "age" := Int & Empty)
-
-testUser :: User
-testUser = #id := Id 8
-     & #name := "Simon"
-     & #age := 7
-     & rnil
 
 type family WithoutId r where
     WithoutId (Record r) = Record (RowDelete "id" r)

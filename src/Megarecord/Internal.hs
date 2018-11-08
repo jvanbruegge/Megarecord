@@ -1,4 +1,12 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Megarecord.Internal (
         Compare, Map(..), Empty, Row,
         Lookup, InsertWith,
@@ -7,8 +15,9 @@ module Megarecord.Internal (
     ) where
 
 import Data.Kind (Type)
-import GHC.TypeLits (Symbol, Nat, CmpSymbol, CmpNat)
 import Fcf (Eval, Exp, Flip, ConstFn, FromMaybe, type (=<<))
+import GHC.TypeLits (Symbol, Nat, CmpSymbol, CmpNat)
+
 import qualified Fcf as F
 
 -- Used for providing a total order over types

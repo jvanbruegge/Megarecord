@@ -1,4 +1,15 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Megarecord.Row (
         Row, Empty,
         RowCons, RowLacks, RowNub, RowUnion,
@@ -6,10 +17,11 @@ module Megarecord.Row (
         RowDelete
     ) where
 
+import Fcf (Eval, Exp, type (++))
 import GHC.TypeLits (Symbol, CmpSymbol, KnownNat, Nat, type (+), type (-))
+
 import Megarecord.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform, Row)
 import Megarecord.Row.Internal (RowIndex, RowLength, RowIndices, KnownNats)
-import Fcf (Eval, Exp, type (++))
 
 class (KnownNat (RowIndex label row)) => RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
         | label row -> ty tail, label ty tail -> row

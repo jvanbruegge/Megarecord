@@ -1,15 +1,30 @@
-{-# LANGUAGE UndecidableSuperClasses, InstanceSigs, UnboxedTuples, MagicHash #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UnboxedTuples #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
+
 module Megarecord.Row.Internal where
 
+import Data.Aeson (Value, ToJSON(..))
 import Data.Kind (Type)
 import Data.Proxy (Proxy(..))
-import Data.Aeson (Value, ToJSON(..))
-import GHC.TypeLits (Symbol, Nat, KnownNat, KnownSymbol, type (+), natVal, symbolVal)
-import Megarecord.Internal (Map(..), Row)
-import GHC.Prim
 import GHC.Base (Any, Int(..))
+import GHC.Prim
+import GHC.TypeLits (Symbol, Nat, KnownNat, KnownSymbol, type (+), natVal, symbolVal)
 import Unsafe.Coerce (unsafeCoerce)
 
+import Megarecord.Internal (Map(..), Row)
 
 class KnownNats (l :: [Nat]) where
     natVals :: Proxy l -> [Int]

@@ -1,6 +1,14 @@
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module Megarecord.Record.Combinators where
 
 import Data.Kind (Type)
+
 import Megarecord.Row (Row, RowCons, RowLacks, RowAppend)
 import Megarecord.Record (Record, FldProxy, insert, get)
 
