@@ -20,7 +20,7 @@ module Data.Record (
         insert, get, modify, set, delete,
         -- merge,
         rnil,
-        (&), (:=), (@.)
+        (&), (:=) ((:=)), (@.)
     ) where
 
 import Data.Aeson (FromJSON(..), ToJSON(..), Object, object, withObject, (.:))
@@ -40,7 +40,7 @@ import Data.Kind.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
 import Data.Kind.RowList (RowToList, RowList(..))
 import Data.Record.Helpers (RecordCons, getIndex)
 
-data Record (r :: Row k) = Record (SmallArray# Any)
+data Record (r :: Row Type) = Record (SmallArray# Any)
 type role Record representational
 
 data FldProxy (a :: Symbol) = FldProxy deriving (Show, Typeable)
@@ -49,7 +49,7 @@ instance (l ~ l') => IsLabel l (FldProxy l') where
     fromLabel = FldProxy
 
 data label := value = FldProxy label := !value
-infix 7 :=
+infix 8 :=
 
 (&) :: forall l v r1 r2.
     RowLacks l r1 =>
@@ -104,6 +104,35 @@ instance (
                 x <- (o .: pack (symbolVal (Proxy @k)) :: Parser v)
                 fromValues (Proxy @m) o >>= pure . insert (FldProxy @k) x
         --TODO: Optimize
+
+instance (RowToList r rl, RowListShow rl r) => Show (Record r) where
+    show r = "{ " ++ showRec (Proxy @rl) r ++ "}"
+
+class RowListShow (rl :: RowList Type) (r :: Row Type) where
+    showRec :: Proxy rl -> Record r -> String
+
+instance RowListShow 'RNil r where
+    showRec _ _ = ""
+
+instance {-# OVERLAPPING #-} (
+        KnownSymbol k,
+        Show v,
+        RecordCons k v r' r
+    ) => RowListShow ('RCons k v 'RNil) r where
+        showRec _ r = showField (Proxy @k) r ++ " "
+
+instance (
+        RowListShow m r,
+        KnownSymbol k,
+        Show v,
+        RecordCons k v r' r
+    ) => RowListShow ('RCons k v m) r where
+        showRec _ r = showField (Proxy @k) r ++ ", " ++ showRec (Proxy @m) r
+
+showField :: forall k v r r'.
+             (Show v, KnownSymbol k, RecordCons k v r' r) =>
+             Proxy k -> Record r -> String
+showField p r = symbolVal p ++ ": " ++ show (get (FldProxy @k) r)
 
 runST' :: (forall s. ST s a) -> a
 runST' !s = runST s
