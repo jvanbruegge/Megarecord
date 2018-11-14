@@ -139,7 +139,7 @@ runST' !s = runST s
 
 rnil :: Record Empty
 rnil = runST' $ ST $ \s# ->
-        case newSmallArray# 0# (error "No value") s# of
+        case newSmallArray# 0# (errorWithoutStackTrace "No value") s# of
             (# s'#, arr# #) -> freeze arr# s'#
 {-# INLINE rnil #-}
 
@@ -205,7 +205,7 @@ merge :: forall r1 r2 r3 r4.
     RowNub r3 r4 =>
     Record r1 -> Record r2 -> Record r4
 merge (Record a#) (Record b#) = runST' $ ST $ \s0# ->
-        case newSmallArray# size# (error "No value") s0# of
+        case newSmallArray# size# (errorWithoutStackTrace "No value") s0# of
             (# s1#, arr# #) -> case fold'# (applyMapping a# arr#) (# s1#, map1 #) indices1 of
                 (# s2#, _ #) -> case fold'# (applyMapping b# arr#) (# s2#, map2 #) indices2 of
                     (# s3#, _ #) -> freeze arr# s3#
@@ -218,7 +218,7 @@ merge (Record a#) (Record b#) = runST' $ ST $ \s0# ->
           newIndices2 = natVals $ Proxy @(RowIndices r2 r3)
 -}
 applyMapping :: SmallArray# Any -> SmallMutableArray# s Any -> Int -> (# State# s, [(Int, Int)] #) -> (# State# s, [(Int, Int)] #)
-applyMapping _ _ _ (# _, [] #) = error "Should not happen"
+applyMapping _ _ _ (# _, [] #) = errorWithoutStackTrace "Should not happen"
 applyMapping a# target# _ (# s#, (I# x#, I# y#):xs #) = (# writeSmallArray# target# y# val s#, xs #)
     where (# val #) = indexSmallArray# a# x#
 
@@ -240,7 +240,7 @@ copyAndInsertNew i# x f indices arr# size# = runST' $ ST $ \s0# ->
                 s2# -> freeze a# s2#
 
 createAndCopy :: Int# -> State# s -> SmallArray# Any -> (Int# -> Int#) -> [Int] -> (# State# s, SmallMutableArray# s Any #)
-createAndCopy size# s0# arr# f indices = case newSmallArray# size# (error "No value") s0# of
+createAndCopy size# s0# arr# f indices = case newSmallArray# size# (errorWithoutStackTrace "No value") s0# of
                 (# s1#, a# #) -> case fold# (copyElement arr# a# f) s1# indices of
                     s2# -> (# s2#, a# #)
 
