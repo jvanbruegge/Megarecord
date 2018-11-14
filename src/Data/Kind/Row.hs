@@ -10,22 +10,21 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Megarecord.Row (
+module Data.Kind.Row (
         Row, Empty,
         RowCons, RowLacks, RowNub, RowUnion,
-        RowAppend, RowPrepend,
-        RowDelete
+        type (&), type (:::)
     ) where
 
+import Data.Kind (Type)
 import Fcf (Eval, Exp, type (++))
-import GHC.TypeLits (Symbol, CmpSymbol, KnownNat, Nat, type (+), type (-))
+import GHC.TypeLits (Symbol, CmpSymbol, Nat, type (+), type (-))
 
-import Megarecord.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform, Row)
-import Megarecord.Row.Internal (RowIndex, RowLength, RowIndices, KnownNats)
+import Data.Kind.Row.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform, Row, RowPrepend)
 
-class (KnownNat (RowIndex label row)) => RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
+class RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
         | label row -> ty tail, label ty tail -> row
-instance (RowDelete s r ~ tail, RowPrepend s ty tail ~ r, KnownNat (RowIndex s r)) => RowCons s ty tail r
+instance (RowDelete s r ~ tail, RowPrepend s ty tail ~ r) => RowCons s ty tail r
 
 class RowLacks (label :: Symbol) (row :: Row k)
 instance (Lookup label row ~ 'Nothing) => RowLacks label row
@@ -33,20 +32,20 @@ instance (Lookup label row ~ 'Nothing) => RowLacks label row
 class RowNub (original :: Row k) (nubbed :: Row k) | original -> nubbed
 instance (RowNub_ original ~ nubbed) => RowNub original nubbed
 
-class (
-        KnownNat (RowLength union),
-        KnownNats (RowIndices left union),
-        KnownNats (RowIndices right union)
-    ) => RowUnion (left :: Row k1) (right :: Row k1) (union :: Row k1)
+class RowUnion (left :: Row k1) (right :: Row k1) (union :: Row k1)
         | left right -> union, union left -> right, right union -> left
 instance (
         Union left right ~ union,
         Extract 'RightSide left union ~ right,
-        Extract 'LeftSide right union ~ left,
-        KnownNat (RowLength union),
-        KnownNats (RowIndices left union),
-        KnownNats (RowIndices right union)
+        Extract 'LeftSide right union ~ left
     ) => RowUnion left right union
+
+data label ::: value
+infix 7 :::
+
+type family def & (r :: Row Type) :: Row Type where
+    (s ::: ty) & r = RowAppend s ty r
+infixr 5 &
 
 -- Implementations
 type RowNub_ (r :: Row k1) = Eval (Transform RowNubInternal r)
@@ -64,11 +63,6 @@ data RowAdd :: Maybe [v] -> [v] -> Exp [v]
 type instance Eval (RowAdd 'Nothing v) = v
 type instance Eval (RowAdd ('Just xs) '[v]) = Eval (xs ++ '[v])
 
-
-type RowPrepend (k :: Symbol) (v :: k2) (m :: Row k2) = Eval (InsertWith RowPrep k '[v] m)
-data RowPrep :: Maybe [v] -> [v] -> Exp [v]
-type instance Eval (RowPrep 'Nothing v) = v
-type instance Eval (RowPrep ('Just xs) '[v]) = v ': xs
 
 type family Union (r1 :: Row k) (r2 :: Row k) :: Row k where
     Union r1 'Nil = r1

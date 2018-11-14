@@ -13,16 +13,17 @@ import Data.Aeson (FromJSON, ToJSON)
 import Network.Wai.Handler.Warp (run)
 import Servant
 
-import Megarecord (type (&), type (:=), Record, RowDelete, Empty, insert)
+import Data.Kind.Row (type (&), type (:::), Empty)
+import Data.Record (Record, insert)
 
 newtype Id = Id Int deriving (Show, FromJSON, ToJSON)
+type family WithId r where
+    WithId (Record r) = Record ("id" ::: Id & r)
 
-type User = Record ("id" := Id & "name" := String & "age" := Int & Empty)
+type UserR = Record ("name" ::: String & "age" ::: Int & Empty)
+type User = WithId UserR
 
-type family WithoutId r where
-    WithoutId (Record r) = Record (RowDelete "id" r)
-
-type API = "user" :> ReqBody '[JSON] (WithoutId User) :> Post '[JSON] User
+type API = "user" :> ReqBody '[JSON] UserR :> Post '[JSON] User
 
 apiHandler :: Server API
 apiHandler rec = pure $ insert #id (Id 0) rec

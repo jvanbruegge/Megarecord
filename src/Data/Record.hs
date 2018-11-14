@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -10,21 +11,23 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UnboxedTuples #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Megarecord.Record (
+module Data.Record (
         Record, FldProxy(..),
         insert, get, modify, set, delete,
-        merge,
-        rnil
+        -- merge,
+        rnil,
+        (&), (:=), (@.)
     ) where
 
 import Data.Aeson (FromJSON(..), ToJSON(..), Object, object, withObject, (.:))
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types (Parser, Value)
 import Data.Kind (Type)
 import Data.Proxy (Proxy(..))
-import Data.Text (pack)
+import Data.Text (Text, pack)
 import Data.Typeable (Typeable)
 import GHC.Base (Any, Int(..))
 import GHC.OverloadedLabels (IsLabel(..))
@@ -33,9 +36,9 @@ import GHC.ST (ST(..), runST)
 import GHC.TypeLits (natVal', Symbol, KnownSymbol, symbolVal)
 import GHC.Types (RuntimeRep(TupleRep, LiftedRep))
 
-import Megarecord.Internal (Map(..))
-import Megarecord.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
-import Megarecord.Row.Internal (RowIndex, RowIndices, RowLength, natVals, KnownLabels, getLabels, ValuesToJSON, toValues)
+import Data.Kind.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
+import Data.Kind.RowList (RowToList, RowList(..))
+import Data.Record.Helpers (RecordCons, getIndex)
 
 data Record (r :: Row k) = Record (SmallArray# Any)
 type role Record representational
@@ -45,29 +48,62 @@ data FldProxy (a :: Symbol) = FldProxy deriving (Show, Typeable)
 instance (l ~ l') => IsLabel l (FldProxy l') where
     fromLabel = FldProxy
 
-instance (KnownLabels r, ValuesToJSON r) => ToJSON (Record r) where
-    toJSON (Record a#) = object $ zipWith (,) (fmap pack (getLabels p)) (toValues p 0 a#)
-        where p = Proxy @r
+data label := value = FldProxy label := !value
+infix 7 :=
 
-instance (KnownLabels r, ValuesFromJSON r) => FromJSON (Record r) where
-    parseJSON = withObject "Record" $ \v -> fromValues (Proxy @r) v
+(&) :: forall l v r1 r2.
+    RowLacks l r1 =>
+    RecordCons l v r1 r2 =>
+    (l := v) -> Record r1 -> Record r2
+(&) (lp := v) = insert lp v
+infixr 5 &
 
-class ValuesFromJSON (r :: Row Type) where
-    fromValues :: Proxy r -> Object -> Parser (Record r)
-instance ValuesFromJSON 'Nil where
-    fromValues _ _ = pure rnil
+(@.) :: forall l ty r r'.
+    RecordCons l ty r' r =>
+    Record r -> FldProxy l -> ty
+(@.) r p = get p r
+infix 8 @.
+
+instance (
+        RowToList r rl,
+        RowListToJSON rl r
+    ) => ToJSON (Record r) where
+        toJSON = object . getValues (Proxy @rl)
+
+class RowListToJSON (rl :: RowList Type) (r :: Row Type) where
+    getValues :: Proxy rl -> Record r -> [(Text, Value)]
+
+instance RowListToJSON 'RNil r where
+    getValues _ _ = []
 instance (
         KnownSymbol s,
-        FromJSON ty,
-        ValuesFromJSON r',
-        RowCons s ty r' ('Cons s '[ty] r'),
-        RowLacks s r'
-    ) => ValuesFromJSON ('Cons s '[ty] r') where
-    fromValues _ o = do
-            x <- (o .: pack (symbolVal (Proxy @s)) :: Parser ty)
-            rec <- fromValues (Proxy @r') o
-            pure $ insert (FldProxy @s) x rec
-    -- TODO: Optimize
+        ToJSON v,
+        RowListToJSON m r,
+        RecordCons s v r' r
+    ) => RowListToJSON ('RCons s v m) r where
+        getValues _ rec = (pack (symbolVal (Proxy @s)), toJSON (get (FldProxy @s) rec)) : getValues (Proxy @m) rec
+
+instance (RowToList r rl, RowListFromJSON rl r) => FromJSON (Record r) where
+    parseJSON = withObject "Record" $ \v -> fromValues (Proxy @rl) v
+
+class RowListFromJSON (rl :: RowList Type) (r :: Row Type) | rl -> r where
+    fromValues :: Proxy rl -> Object -> Parser (Record r)
+
+instance RowListFromJSON 'RNil Empty where
+    fromValues _ _ = pure rnil
+instance (
+        KnownSymbol k,
+        RowToList r ('RCons k v m),
+        RowToList r' m,
+        RowLacks k r',
+        RowCons k v r' r,
+        RowListFromJSON m r',
+        FromJSON v
+    ) => RowListFromJSON ('RCons k v m) r where
+        fromValues _ o = do
+                x <- (o .: pack (symbolVal (Proxy @k)) :: Parser v)
+                fromValues (Proxy @m) o >>= pure . insert (FldProxy @k) x
+        --TODO: Optimize
 
 runST' :: (forall s. ST s a) -> a
 runST' !s = runST s
@@ -82,13 +118,12 @@ idInt# :: Int# -> Int#
 idInt# x# = x#
 
 insert :: forall l ty r1 r2.
-    RowLacks l r1 =>
-    RowCons l ty r1 r2 =>
+    (RowLacks l r1, RecordCons l ty r1 r2) =>
     FldProxy l -> ty -> Record r1 -> Record r2
 insert _ x (Record a#) = copyAndInsertNew @r2 i# x f indices a# newSize#
     where newSize# = oldSize# +# 1#
           !oldSize# = sizeofSmallArray# a#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r2))
+          !(I# i#) = getIndex (Proxy @l) (Proxy @r2)
           indices = [0 .. I# (oldSize# -# 1#)]
           f n# = case n# <# i# of
                 0# -> n# +# 1#
@@ -96,11 +131,11 @@ insert _ x (Record a#) = copyAndInsertNew @r2 i# x f indices a# newSize#
 {-# INLINE insert #-}
 
 modify :: forall l a b r1 r2 r.
-    RowCons l a r r1 =>
+    RecordCons l a r r1 =>
     RowCons l b r r2 =>
     FldProxy l -> (a -> b) -> Record r1 -> Record r2
 modify _ f (Record a#) = copyAndInsertNew @r2 i# val idInt# indices a# size#
-    where !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r1))
+    where !(I# i#) = getIndex (Proxy @l) (Proxy @r1)
           !size# = sizeofSmallArray# a#
           indices = filter (/= I# i#) [0 .. I# (size# -# 1#)]
           (# oldVal #) = indexSmallArray# a# i#
@@ -108,34 +143,34 @@ modify _ f (Record a#) = copyAndInsertNew @r2 i# val idInt# indices a# size#
 {-# INLINE modify #-}
 
 set :: forall l a b r1 r2 r.
-    RowCons l a r r1 =>
+    RecordCons l a r r1 =>
     RowCons l b r r2 =>
     FldProxy l -> b -> Record r1 -> Record r2
 set p b = modify p (const b)
 {-# INLINE set #-}
 
 get :: forall l ty r1 r2.
-    RowCons l ty r1 r2 =>
+    RecordCons l ty r1 r2 =>
     FldProxy l -> Record r2 -> ty
 get _ (Record arr#) = unsafeCoerce# val
     where (# val #) = indexSmallArray# arr# i#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r2))
+          !(I# i#) = getIndex (Proxy @l) (Proxy @r2)
 {-# INLINE get #-}
 
 delete :: forall l ty r1 r2.
     RowLacks l r2 =>
-    RowCons l ty r2 r1 =>
+    RecordCons l ty r2 r1 =>
     FldProxy l -> Record r1 -> Record r2
 delete _ (Record arr#) = runST' $ ST $ \s0# ->
         case createAndCopy size# s0# arr# f indices of
             (# s1#, a# #) -> freeze a# s1#
     where size# = sizeofSmallArray# arr# -# 1#
-          !(I# i#) = fromIntegral $ natVal' (proxy# :: Proxy# (RowIndex l r1))
+          !(I# i#) = getIndex (Proxy @l) (Proxy @r1)
           indices = filter (/= I# i#) [0 .. I# size#]
           f n# = case n# ># i# of
                 0# -> n#
                 _ -> n# -# 1#
-
+{-
 merge :: forall r1 r2 r3 r4.
     RowUnion r1 r2 r3 =>
     RowNub r3 r4 =>
@@ -152,7 +187,7 @@ merge (Record a#) (Record b#) = runST' $ ST $ \s0# ->
           map2 = filteredMapping map1 $ zip (indexList b#) newIndices2
           newIndices1 = natVals $ Proxy @(RowIndices r1 r3)
           newIndices2 = natVals $ Proxy @(RowIndices r2 r3)
-
+-}
 applyMapping :: SmallArray# Any -> SmallMutableArray# s Any -> Int -> (# State# s, [(Int, Int)] #) -> (# State# s, [(Int, Int)] #)
 applyMapping _ _ _ (# _, [] #) = error "Should not happen"
 applyMapping a# target# _ (# s#, (I# x#, I# y#):xs #) = (# writeSmallArray# target# y# val s#, xs #)

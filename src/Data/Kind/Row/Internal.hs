@@ -7,12 +7,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Megarecord.Internal (
-        Compare, Map(..), Empty, Row,
-        Lookup, InsertWith,
-        RemoveWith, Traverse, Transform,
-        Contains, Insert,
-    ) where
+module Data.Kind.Row.Internal where
 
 import Data.Kind (Type)
 import Fcf (Eval, Exp, Flip, ConstFn, FromMaybe, type (=<<))
@@ -65,7 +60,6 @@ type instance Eval (InsertInternal 'EQ f k v ('Cons k' v' m)) = 'Cons k (Eval (f
 type instance Eval (InsertInternal 'GT f k v ('Cons k' v' m)) = 'Cons k' v' (Eval (InsertWith f k v m))
 
 
-
 data RemoveWith :: (k2 -> Exp (Maybe k2)) -> k1 -> Map k1 k2 -> Exp (Map k1 k2)
 
 
@@ -85,7 +79,6 @@ type family RemoveNode (v :: Maybe k2) (m :: Map k1 k2) :: Map k1 k2 where
     RemoveNode ('Just x) ('Cons k _ m) = 'Cons k x m
 
 
-
 type family Traverse (f :: k1 -> k2 -> Exp k3) (con :: k3 -> k3 -> Exp k3) (m :: Map k1 k2) (id :: k3) :: k3 where
     Traverse _ _ 'Nil id = id
     Traverse f _ ('Cons k v 'Nil) _ = Eval (f k v)
@@ -96,3 +89,8 @@ type Insert (k :: k1) (v :: k2) (m :: Map k1 k2) = Eval (InsertWith (Flip ConstF
 
 type Contains (mapping :: k2 -> Exp Bool) (k :: k1) (m :: Map k1 k2) =
     Eval (FromMaybe 'False =<< F.Map mapping =<< Lookup_ k m)
+
+type RowPrepend (k :: Symbol) (v :: k2) (m :: Row k2) = Eval (InsertWith RowPrep k '[v] m)
+data RowPrep :: Maybe [v] -> [v] -> Exp [v]
+type instance Eval (RowPrep 'Nothing v) = v
+type instance Eval (RowPrep ('Just xs) '[v]) = v ': xs
