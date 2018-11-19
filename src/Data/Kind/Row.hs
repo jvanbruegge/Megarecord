@@ -13,14 +13,22 @@
 module Data.Kind.Row (
         Row, Empty,
         RowCons, RowLacks, RowNub, RowUnion,
+        FldProxy(..),
         type (&), type (:::)
     ) where
 
 import Data.Kind (Type)
+import Data.Typeable (Typeable)
 import Fcf (Eval, Exp, type (++))
+import GHC.OverloadedLabels (IsLabel(..))
 import GHC.TypeLits (Symbol, CmpSymbol, Nat, type (+), type (-))
 
 import Data.Kind.Row.Internal (Map(..), Empty, RemoveWith, InsertWith, Lookup, Transform, Row, RowPrepend)
+
+data FldProxy (a :: Symbol) = FldProxy deriving (Show, Typeable)
+
+instance (l ~ l') => IsLabel l (FldProxy l') where
+    fromLabel = FldProxy
 
 class RowCons (label :: Symbol) (ty :: k) (tail :: Row k) (row :: Row k)
         | label row -> ty tail, label ty tail -> row

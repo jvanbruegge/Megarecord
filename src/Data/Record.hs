@@ -17,6 +17,7 @@
 
 module Data.Record (
         Record, FldProxy(..),
+        RecordCons,
         insert, get, modify, set, delete,
         -- merge,
         rnil,
@@ -28,25 +29,18 @@ import Data.Aeson.Types (Parser, Value)
 import Data.Kind (Type)
 import Data.Proxy (Proxy(..))
 import Data.Text (Text, pack)
-import Data.Typeable (Typeable)
 import GHC.Base (Any, Int(..))
-import GHC.OverloadedLabels (IsLabel(..))
 import GHC.Prim
 import GHC.ST (ST(..), runST)
 import GHC.TypeLits (natVal', Symbol, KnownSymbol, symbolVal)
 import GHC.Types (RuntimeRep(TupleRep, LiftedRep))
 
-import Data.Kind.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub)
+import Data.Kind.Row (Row, Empty, RowCons, RowLacks, RowUnion, RowNub, FldProxy(..))
 import Data.Kind.RowList (RowToList, RowList(..))
 import Data.Record.Helpers (RecordCons, getIndex)
 
 data Record (r :: Row Type) = Record (SmallArray# Any)
 type role Record representational
-
-data FldProxy (a :: Symbol) = FldProxy deriving (Show, Typeable)
-
-instance (l ~ l') => IsLabel l (FldProxy l') where
-    fromLabel = FldProxy
 
 data label := value = FldProxy label := !value
 infix 8 :=
