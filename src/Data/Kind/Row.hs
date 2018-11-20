@@ -17,7 +17,6 @@ module Data.Kind.Row (
         type (&), type (:::)
     ) where
 
-import Data.Kind (Type)
 import Data.Typeable (Typeable)
 import Fcf (Eval, Exp, type (++))
 import GHC.OverloadedLabels (IsLabel(..))
@@ -51,7 +50,7 @@ instance (
 data label ::: value
 infix 7 :::
 
-type family def & (r :: Row Type) :: Row Type where
+type family def & (r :: Row k) :: Row k where
     (s ::: ty) & r = RowAppend s ty r
 infixr 5 &
 

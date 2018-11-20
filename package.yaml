@@ -24,8 +24,6 @@ executable:
     main:             Main.hs
     dependencies:
       - megarecord
-      - servant-server
-      - warp
 
 library:
   source-dirs: src
