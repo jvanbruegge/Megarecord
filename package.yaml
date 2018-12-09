@@ -31,6 +31,8 @@ library:
     - Data.Kind.Row
     - Data.Kind.RowList
     - Data.Record
+    - Data.Variant
+    - Data.Functor.Variant
 
 tests:
   spec:
