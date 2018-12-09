@@ -14,7 +14,7 @@ module Data.Kind.Row (
         Row, Empty,
         RowCons, RowLacks, RowNub, RowUnion,
         FldProxy(..),
-        type (&), type (:::)
+        type (&), type (:::), type (:+:)
     ) where
 
 import Data.Typeable (Typeable)
@@ -53,6 +53,9 @@ infix 7 :::
 type family def & (r :: Row k) :: Row k where
     (s ::: ty) & r = RowAppend s ty r
 infixr 5 &
+
+type (f :: Row k -> Row k) :+: (a :: Row k) = f a
+infixr 1 :+:
 
 -- Implementations
 type RowNub_ (r :: Row k1) = Eval (Transform RowNubInternal r)

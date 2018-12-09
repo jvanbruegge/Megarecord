@@ -22,8 +22,6 @@ import Control.Applicative (Alternative, empty)
 import GHC.TypeLits (KnownSymbol, symbolVal)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Debug.Trace
-
 import Data.Kind.Row (Row, Empty, RowCons, FldProxy)
 
 data VariantCS (cs :: [(k -> Type) -> Constraint]) (r :: Row (k -> Type)) (a :: k) =
